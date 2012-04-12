@@ -22,12 +22,12 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
     if (!evaluatorFunctionTarget)
         evaluatorFunctionTarget = options["owner"];
 
-    var _subscriptionsToDependencies = [];
+    var _subscriptionsToDependencies = {};
     function disposeAllSubscriptionsToDependencies() {
-        ko.utils.arrayForEach(_subscriptionsToDependencies, function (subscription) {
+        ko.utils.arrayForEach(ko.utils.objectValues(_subscriptionsToDependencies), function (subscription) {
             subscription.dispose();
         });
-        _subscriptionsToDependencies = [];
+        _subscriptionsToDependencies = {};
     }
     var dispose = disposeAllSubscriptionsToDependencies;
     
@@ -85,8 +85,10 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
                 var inOld;
                 if ((inOld = ko.utils.arrayIndexOf(disposalCandidates, subscribable)) >= 0)
                     disposalCandidates[inOld] = undefined; // Don't want to dispose this subscription, as it's still being used
-                else
-                    _subscriptionsToDependencies.push(subscribable.subscribe(evaluatePossiblyAsync)); // Brand new subscription - add it
+                else {
+                    var toPush = subscribable.subscribe(evaluatePossiblyAsync);
+                    _subscriptionsToDependencies[toPush.target.identity] = toPush; // Brand new subscription - add it
+                }
             });
 
             var newValue = readFunction.call(evaluatorFunctionTarget);
@@ -135,7 +137,7 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
         return _latestValue;
     }
 
-    dependentObservable.getDependenciesCount = function () { return _subscriptionsToDependencies.length; };
+    dependentObservable.getDependenciesCount = function () { return ko.utils.objectValues(_subscriptionsToDependencies).length; };
     dependentObservable.hasWriteFunction = typeof options["write"] === "function";
     dependentObservable.dispose = function () { dispose(); };
     

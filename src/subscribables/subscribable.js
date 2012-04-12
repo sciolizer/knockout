@@ -10,8 +10,12 @@ ko.subscription.prototype.dispose = function () {
     this.disposeCallback();
 };
 
+var subscribable_nonce = 0;
+
 ko.subscribable = function () {
     this._subscriptions = {};
+    subscribable_nonce += 1;
+    this.identity = subscribable_nonce;
 
     ko.utils.extend(this, ko.subscribable['fn']);
     ko.exportProperty(this, 'subscribe', this.subscribe);

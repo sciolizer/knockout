@@ -38,6 +38,14 @@ ko.utils = new (function () {
     return {
         fieldsIncludedWithJsonPost: ['authenticity_token', /^__RequestVerificationToken(_.*)?$/],
         
+        objectValues: function (object) {
+            var ret = [];
+            for (prop in object) {
+                ret.push(object[prop]);
+            }
+            return ret;
+        },
+
         arrayForEach: function (array, action) {
             for (var i = 0, j = array.length; i < j; i++)
                 action(array[i]);
