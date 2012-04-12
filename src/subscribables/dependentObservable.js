@@ -1,3 +1,22 @@
+var isTopCallToReadDependentObservable = true;
+var evaluateImmediateQueue = {};
+function flushEvaluateImmediateQueue() {
+    var original = isTopCallToReadDependentObservable;
+    isTopCallToReadDependentObservable = false;
+    try {
+        while (!_.isEmpty(evaluateImmediateQueue)) {
+            var k;
+            for (var key in evaluateImmediateQueue) {
+                k = key;
+                break; // break out of for loop in case contents of evaluateImmediateQueue change on invoking callback
+            }
+            evaluateImmediateQueue[k](); // removes the key from the queue
+        }
+    } finally {
+        isTopCallToReadDependentObservable = original;
+    }
+}
+
 ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunctionTarget, options) {
     var _latestValue, 
         _hasBeenEvaluated = false,
@@ -28,6 +47,7 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
             subscription.dispose();
         });
         _subscriptionsToDependencies = {};
+        delete evaluateImmediateQueue[dependentObservable.identity];
     }
     var dispose = disposeAllSubscriptionsToDependencies;
     
@@ -55,7 +75,12 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
             clearTimeout(evaluationTimeoutInstance);
             evaluationTimeoutInstance = setTimeout(evaluateImmediate, throttleEvaluationTimeout);
         } else
-            evaluateImmediate();
+            evaluateEventually();
+    }
+
+    // Doesn't evaluate immediately, but does evaluate before returning to code outside of the library.
+    function evaluateEventually() {
+        evaluateImmediateQueue[dependentObservable.identity] = evaluateImmediate;
     }
 
     function evaluateImmediate() {
@@ -103,6 +128,7 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
             dependentObservable["notifySubscribers"](_latestValue, "beforeChange");
             _latestValue = newValue;
             if (DEBUG) dependentObservable._latestValue = _latestValue;
+            delete evaluateImmediateQueue[dependentObservable.identity];
         } finally {
             ko.dependencyDetection.end();
         }
@@ -130,11 +156,20 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
     }
 
     function get() {
-        // Reading the value
-        if (!_hasBeenEvaluated)
-            evaluateImmediate();
-        ko.dependencyDetection.registerDependency(dependentObservable);
-        return _latestValue;
+        var original = isTopCallToReadDependentObservable;
+        isTopCallToReadDependentObservable = false;
+        try {
+            // Reading the value
+            if (!_hasBeenEvaluated || evaluateImmediateQueue[dependentObservable.identity])
+                evaluateImmediate();
+            ko.dependencyDetection.registerDependency(dependentObservable);
+            return _latestValue;
+        } finally {
+            isTopCallToReadDependentObservable = original;
+            if (isTopCallToReadDependentObservable) {
+                flushEvaluateImmediateQueue();
+            }
+        }
     }
 
     dependentObservable.getDependenciesCount = function () { return ko.utils.objectValues(_subscriptionsToDependencies).length; };
