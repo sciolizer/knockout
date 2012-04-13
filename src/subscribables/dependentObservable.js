@@ -1,6 +1,6 @@
 var isTopCallToReadDependentObservable = true;
 var evaluateImmediateQueue = {};
-function flushEvaluateImmediateQueue() {
+ko.flushEvaluateImmediateQueue = function() {
     var original = isTopCallToReadDependentObservable;
     isTopCallToReadDependentObservable = false;
     try {
@@ -167,7 +167,7 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
         } finally {
             isTopCallToReadDependentObservable = original;
             if (isTopCallToReadDependentObservable) {
-                flushEvaluateImmediateQueue();
+                ko.flushEvaluateImmediateQueue();
             }
         }
     }

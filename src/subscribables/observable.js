@@ -14,6 +14,7 @@ ko.observable = function (initialValue) {
                 if (DEBUG) observable._latestValue = _latestValue;
                 observable.valueHasMutated();
             }
+            ko.flushEvaluateImmediateQueue();
             return this; // Permits chained assignments
         }
         else {
